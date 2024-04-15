@@ -33,7 +33,7 @@ function main() {
 
 function setUpWebGL(canvas) {
 	// Get the rendering context for WebGL
-	const gl = getWebGLContext(canvas);
+	const gl = getWebGLContext(canvas, { preserveDrawingBuffer: true });
 	if (!gl) {
 		console.log('Failed to get the rendering context for WebGL');
 		return null;
@@ -80,6 +80,18 @@ function connectVariablesToGLSL(gl) {
 function handleClicks(canvas, gl, a_Position, a_Size, u_FragColor) {
 	// Register function (event handler) to be called on a mouse press
 	canvas.onmousedown = (ev) => click(ev, gl, canvas, a_Position, a_Size, u_FragColor);
+	canvas.onmousemove = (ev) => {
+		if (ev.buttons == 1) {
+			click(ev, gl, canvas, a_Position, a_Size, u_FragColor);
+		}
+	};
+
+	document.getElementById('clear').onclick = () => clearCanvas(gl, a_Position, a_Size, u_FragColor);
+};
+
+function clearCanvas(gl, a_Position, a_Size, u_FragColor) {
+	points.splice(0);
+	renderAllShapes(gl, a_Position, a_Size, u_FragColor);
 }
 
 class Point {
@@ -99,10 +111,6 @@ class Point {
 }
 
 const points = [];
-
-const g_points = []; // The array for the position of a mouse press
-const g_sizes = []; // array for sizes of all points
-const g_colors = []; // The array to store the color of a point
 
 function click(ev, gl, canvas, a_Position, a_Size, u_FragColor) {
 	let x = ev.clientX; // x coordinate of a mouse pointer
