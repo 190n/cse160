@@ -1,19 +1,24 @@
 // ColoredPoint.js (c) 2012 matsuda
 // Vertex shader program
-const VSHADER_SOURCE =
-	'attribute vec4 a_Position;\n' +
-	'void main() {\n' +
-	'  gl_Position = a_Position;\n' +
-	'  gl_PointSize = 10.0;\n' +
-	'}\n';
+const VSHADER_SOURCE = `
+attribute vec4 a_Position;
+attribute float a_Size;
+
+void main() {
+	gl_Position = a_Position;
+	gl_PointSize = a_Size;
+}
+`;
 
 // Fragment shader program
-const FSHADER_SOURCE =
-	'precision mediump float;\n' +
-	'uniform vec4 u_FragColor;\n' +  // uniform変数
-	'void main() {\n' +
-	'  gl_FragColor = u_FragColor;\n' +
-	'}\n';
+const FSHADER_SOURCE = `
+precision mediump float;
+uniform vec4 u_FragColor;
+
+void main() {
+	gl_FragColor = u_FragColor;
+}
+`;
 
 function main() {
 	// Retrieve <canvas> element
@@ -22,11 +27,9 @@ function main() {
 	if (gl === null) {
 		return;
 	}
-	const [a_Position, u_FragColor] = connectVariablesToGLSL(gl);
-	handleClicks(canvas, gl, a_Position, u_FragColor);
+	const [a_Position, a_Size, u_FragColor] = connectVariablesToGLSL(gl);
+	handleClicks(canvas, gl, a_Position, a_Size, u_FragColor);
 }
-
-
 
 function setUpWebGL(canvas) {
 	// Get the rendering context for WebGL
@@ -59,24 +62,49 @@ function connectVariablesToGLSL(gl) {
 		return;
 	}
 
+	const a_Size = gl.getAttribLocation(gl.program, 'a_Size');
+	if (a_Size < 0) {
+		console.log('Failed to get the storage location of a_Size');
+		return;
+	}
+
 	// Get the storage location of u_FragColor
 	const u_FragColor = gl.getUniformLocation(gl.program, 'u_FragColor');
 	if (!u_FragColor) {
 		console.log('Failed to get the storage location of u_FragColor');
 		return;
 	}
-	return [a_Position, u_FragColor];
+	return [a_Position, a_Size, u_FragColor];
 }
 
-function handleClicks(canvas, gl, a_Position, u_FragColor) {
+function handleClicks(canvas, gl, a_Position, a_Size, u_FragColor) {
 	// Register function (event handler) to be called on a mouse press
-	canvas.onmousedown = (ev) => click(ev, gl, canvas, a_Position, u_FragColor);
+	canvas.onmousedown = (ev) => click(ev, gl, canvas, a_Position, a_Size, u_FragColor);
 }
+
+class Point {
+	constructor(x, y, size, color) {
+		this.x = x;
+		this.y = y;
+		this.size = size;
+		this.color = color;
+	}
+
+	render(gl, a_Position, a_Size, u_FragColor) {
+		gl.vertexAttrib3f(a_Position, this.x, this.y, 0.0);
+		gl.vertexAttrib1f(a_Size, this.size);
+		gl.uniform4f(u_FragColor, ...this.color);
+		gl.drawArrays(gl.POINTS, 0, 1);
+	}
+}
+
+const points = [];
 
 const g_points = []; // The array for the position of a mouse press
+const g_sizes = []; // array for sizes of all points
 const g_colors = []; // The array to store the color of a point
 
-function click(ev, gl, canvas, a_Position, u_FragColor) {
+function click(ev, gl, canvas, a_Position, a_Size, u_FragColor) {
 	let x = ev.clientX; // x coordinate of a mouse pointer
 	let y = ev.clientY; // y coordinate of a mouse pointer
 	const rect = ev.target.getBoundingClientRect();
@@ -84,34 +112,22 @@ function click(ev, gl, canvas, a_Position, u_FragColor) {
 	x = ((x - rect.left) - canvas.width/2)/(canvas.width/2);
 	y = (canvas.height/2 - (y - rect.top))/(canvas.height/2);
 
-	// Store the coordinates to g_points array
-	g_points.push([x, y]);
-	// Store the coordinates to g_points array
-	if (x >= 0.0 && y >= 0.0) {      // First quadrant
-		g_colors.push([1.0, 0.0, 0.0, 1.0]);  // Red
-	} else if (x < 0.0 && y < 0.0) { // Third quadrant
-		g_colors.push([0.0, 1.0, 0.0, 1.0]);  // Green
-	} else {                         // Others
-		g_colors.push([1.0, 1.0, 1.0, 1.0]);  // White
-	}
+	const size = parseFloat(document.getElementById('size').value);
 
-	renderAllShapes(gl, a_Position, u_FragColor);
+	const red = parseFloat(document.getElementById('red').value);
+	const green = parseFloat(document.getElementById('green').value);
+	const blue = parseFloat(document.getElementById('blue').value);
+
+	points.push(new Point(x, y, size, [red, green, blue, 1.0]));
+
+	renderAllShapes(gl, a_Position, a_Size, u_FragColor);
 }
 
-function renderAllShapes(gl, a_Position, u_FragColor) {
+function renderAllShapes(gl, a_Position, a_Size, u_FragColor) {
 	// Clear <canvas>
 	gl.clear(gl.COLOR_BUFFER_BIT);
 
-	const len = g_points.length;
-	for (let i = 0; i < len; i++) {
-		const xy = g_points[i];
-		const rgba = g_colors[i];
-
-		// Pass the position of a point to a_Position variable
-		gl.vertexAttrib3f(a_Position, xy[0], xy[1], 0.0);
-		// Pass the color of a point to u_FragColor variable
-		gl.uniform4f(u_FragColor, rgba[0], rgba[1], rgba[2], rgba[3]);
-		// Draw
-		gl.drawArrays(gl.POINTS, 0, 1);
+	for (const p of points) {
+		p.render(gl, a_Position, a_Size, u_FragColor);
 	}
 }
