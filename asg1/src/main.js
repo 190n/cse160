@@ -20,6 +20,8 @@ void main() {
 }
 `;
 
+let shapeMode = 'squares';
+
 function main() {
 	// Retrieve <canvas> element
 	const canvas = document.getElementById('webgl');
@@ -28,7 +30,10 @@ function main() {
 		return;
 	}
 	const [a_Position, a_Size, u_FragColor] = connectVariablesToGLSL(gl);
-	handleClicks(canvas, gl, a_Position, a_Size, u_FragColor);
+	if (!initVertexBuffers(gl, a_Position)) {
+		return;
+	}
+	handleClicks(canvas, gl, a_Size, u_FragColor);
 }
 
 function setUpWebGL(canvas) {
@@ -77,42 +82,80 @@ function connectVariablesToGLSL(gl) {
 	return [a_Position, a_Size, u_FragColor];
 }
 
-function handleClicks(canvas, gl, a_Position, a_Size, u_FragColor) {
+function initVertexBuffers(gl, a_Position) {
+	// Create a buffer object
+	const vertexBuffer = gl.createBuffer();
+	if (!vertexBuffer) {
+		console.log('Failed to create the buffer object');
+		return false;
+	}
+
+	// Bind the buffer object to target
+	gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+	// Write date into the buffer object
+	// gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+	// Assign the buffer object to a_Position variable
+	gl.vertexAttribPointer(a_Position, 2, gl.FLOAT, false, 0, 0);
+
+	// Enable the assignment to a_Position variable
+	gl.enableVertexAttribArray(a_Position);
+	return true;
+}
+
+function handleClicks(canvas, gl, a_Size, u_FragColor) {
 	// Register function (event handler) to be called on a mouse press
-	canvas.onmousedown = (ev) => click(ev, gl, canvas, a_Position, a_Size, u_FragColor);
+	canvas.onmousedown = (ev) => click(ev, gl, canvas, a_Size, u_FragColor);
 	canvas.onmousemove = (ev) => {
 		if (ev.buttons == 1) {
-			click(ev, gl, canvas, a_Position, a_Size, u_FragColor);
+			click(ev, gl, canvas, a_Size, u_FragColor);
 		}
 	};
 
-	document.getElementById('clear').onclick = () => clearCanvas(gl, a_Position, a_Size, u_FragColor);
+	document.getElementById('clear').onclick = () => clearCanvas(gl, a_Size, u_FragColor);
+	document.getElementById('draw').onclick = () => {
+		points.splice(0);
+		points.push(...drawing);
+		renderAllShapes(gl, a_Size, u_FragColor);
+	};
+
+	document.getElementById('mode-squares').onclick = () => shapeMode = 'squares';
+	document.getElementById('mode-triangles').onclick = () => shapeMode = 'triangles';
+	document.getElementById('mode-circles').onclick = () => shapeMode = 'circles';
 };
 
-function clearCanvas(gl, a_Position, a_Size, u_FragColor) {
+function clearCanvas(gl, a_Size, u_FragColor) {
 	points.splice(0);
-	renderAllShapes(gl, a_Position, a_Size, u_FragColor);
+	renderAllShapes(gl, a_Size, u_FragColor);
 }
 
-class Point {
-	constructor(x, y, size, color) {
-		this.x = x;
-		this.y = y;
-		this.size = size;
-		this.color = color;
-	}
+const drawing = [
+	Triangle.fromVertices([0, 3/8, 0, 6/8, 3/8, 3/8], [0.8, 0.45, 0.1, 1.0]),
+	Triangle.fromVertices([3/8, 3/8, 6/8, 6/8, 6/8, 3/8], [0.8, 0.45, 0.1, 1.0]),
+	Triangle.fromVertices([0, 3/8, 6/8, 3/8, 3/8, -1/8], [0.8, 0.45, 0.1, 1.0]),
+	Triangle.fromVertices([0, 3/8, 3/8, -1/8, 0, 0], [0.8, 0.45, 0.1, 1.0]),
+	Triangle.fromVertices([6/8, 3/8, 6/8, 0, 3/8, -1/8], [0.8, 0.45, 0.1, 1.0]),
 
-	render(gl, a_Position, a_Size, u_FragColor) {
-		gl.vertexAttrib3f(a_Position, this.x, this.y, 0.0);
-		gl.vertexAttrib1f(a_Size, this.size);
-		gl.uniform4f(u_FragColor, ...this.color);
-		gl.drawArrays(gl.POINTS, 0, 1);
-	}
-}
+	Triangle.fromVertices([4/16, 3/16, 4/16, 4/16, 3/16, 3/16], [0.05, 0.3, 0.1, 1.0]),
+	Triangle.fromVertices([8/16, 3/16, 8/16, 4/16, 9/16, 3/16], [0.05, 0.3, 0.1, 1.0]),
+
+	Triangle.fromVertices([6/16, 0, 5/16, 1/16, 7/16, 1/16], [0.3, 0.15, 0, 1.0]),
+
+	Triangle.fromVertices([3/16, -1/16, -4/16, -12/16, 6/16, -2/16], [0.6, 0.4, 0.2, 1.0]),
+	Triangle.fromVertices([6/16, -2/16, 4/16, -12/16, -4/16, -12/16], [0.6, 0.4, 0.2, 1.0]),
+	Triangle.fromVertices([6/16, -2/16, 9/16, -1/16, 6/16, -8/16], [0.6, 0.4, 0.2, 1.0]),
+	Triangle.fromVertices([6/16, -2/16, 6/16, -12/16, 4/16, -12/16], [0.6, 0.4, 0.2, 1.0]),
+	Triangle.fromVertices([-8/32, -24/32, -16/32, -22/32, -13/32, -21/32], [0.6, 0.4, 0.2, 1.0]),
+	Triangle.fromVertices([-13/32, -21/32, -16/32, -8/32, -16/32, -22/32], [0.6, 0.4, 0.2, 1.0]),
+
+	Triangle.fromVertices([6/16, -12/16, 7/16, -12/16, 6/16, -11/16], [1.0, 1.0, 1.0, 1.0]),
+	Triangle.fromVertices([2/16, 0, -4/16, -1/16, -4/16, -2/16], [1.0, 1.0, 1.0, 1.0]),
+	Triangle.fromVertices([10/16, 0, 1, -1/16, 1, -2/16], [1.0, 1.0, 1.0, 1.0]),
+];
 
 const points = [];
 
-function click(ev, gl, canvas, a_Position, a_Size, u_FragColor) {
+function click(ev, gl, canvas, a_Size, u_FragColor) {
 	let x = ev.clientX; // x coordinate of a mouse pointer
 	let y = ev.clientY; // y coordinate of a mouse pointer
 	const rect = ev.target.getBoundingClientRect();
@@ -126,16 +169,27 @@ function click(ev, gl, canvas, a_Position, a_Size, u_FragColor) {
 	const green = parseFloat(document.getElementById('green').value);
 	const blue = parseFloat(document.getElementById('blue').value);
 
-	points.push(new Point(x, y, size, [red, green, blue, 1.0]));
+	switch (shapeMode) {
+		case 'squares':
+			points.push(new Point(x, y, size, [red, green, blue, 1.0]));
+			break;
+		case 'triangles':
+			points.push(new Triangle(x, y, size / canvas.width, [red, green, blue, 1.0]));
+			break;
+		case 'circles':
+			const segments = parseInt(document.getElementById('segments').value);
+			points.push(new Circle(x, y, size / canvas.width, [red, green, blue, 1.0], segments));
+			break;
+	}
 
-	renderAllShapes(gl, a_Position, a_Size, u_FragColor);
+	renderAllShapes(gl, a_Size, u_FragColor);
 }
 
-function renderAllShapes(gl, a_Position, a_Size, u_FragColor) {
+function renderAllShapes(gl, a_Size, u_FragColor) {
 	// Clear <canvas>
 	gl.clear(gl.COLOR_BUFFER_BIT);
 
 	for (const p of points) {
-		p.render(gl, a_Position, a_Size, u_FragColor);
+		p.render(gl, a_Size, u_FragColor);
 	}
 }

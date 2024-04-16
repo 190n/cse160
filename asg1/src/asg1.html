@@ -12,6 +12,14 @@
 
 		<p>
 			<button id="clear">Clear Canvas</button>
+			<button id="draw">Show Drawing</button>
+		</p>
+
+		<p>
+			Drawing Mode:<br>
+			<button id="mode-squares">Squares</button>
+			<button id="mode-triangles">Triangles</button>
+			<button id="mode-circles">Circles</button>
 		</p>
 
 		<p>
@@ -35,11 +43,23 @@
 				Shape Size:
 				<input type="range" min="1" max="50" step="1" id="size">
 			</label>
+			<label for="segments">
+				(Circles) Segment Count:
+				<input type="range" id="segments" min="3" max="20" step="1">
+			</label>
+		</p>
+
+		<p>
+			Reference drawing:<br>
+			<img src="../cat.png" width="400">
 		</p>
 
 		<script src="../lib/webgl-utils.js"></script>
 		<script src="../lib/webgl-debug.js"></script>
 		<script src="../lib/cuon-utils.js"></script>
+		<script src="Point.js"></script>
+		<script src="Triangle.js"></script>
+		<script src="Circle.js"></script>
 		<script src="main.js"></script>
 	</body>
 </html>
