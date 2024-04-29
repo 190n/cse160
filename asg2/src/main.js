@@ -170,7 +170,7 @@ function renderAllShapes() {
 	// Clear <canvas>
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-	const rotateMat = new Matrix4().rotate(cameraAngleX, 0, 1, 0).rotate(cameraAngleY, 1, 0, 0);
+	const rotateMat = new Matrix4().rotate(cameraAngleY, 1, 0, 0).rotate(cameraAngleX, 0, 1, 0);
 	gl.uniformMatrix4fv(u_GlobalRotateMatrix, false, rotateMat.elements);
 
 	const base = new Matrix4().translate(-0.5, -0.5, -0.5);
