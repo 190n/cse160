@@ -10,7 +10,8 @@ uniform mat4 u_GlobalRotateMatrix;
 
 void main() {
 	v_UV = a_UV;
-	gl_Position = u_GlobalRotateMatrix * u_ModelMatrix * a_Position;
+	vec4 pos = u_GlobalRotateMatrix * u_ModelMatrix * a_Position;
+	gl_Position = vec4(pos.xy, (pos.z - 8.0) / 10.0, pos.w);
 }
 `;
 
@@ -41,6 +42,9 @@ void main() {
 
 let canvas, gl, a_Position, a_UV, u_ModelMatrix, u_GlobalRotateMatrix;
 
+let cameraAngleX = 0;
+let cameraAngleY = 0;
+
 let fpsEstimate = -1;
 
 function main() {
@@ -52,6 +56,7 @@ function main() {
 	}
 	connectVariablesToGLSL();
 	initTextures();
+	handleClicks();
 	requestAnimationFrame(tick);
 }
 
@@ -101,7 +106,7 @@ function initTextures() {
 	const texture0 = gl.createTexture();
 	const image0 = new Image();
 	image0.onload = () => loadTexture(texture0, u_Sampler0, image0);
-	image0.src = 'grass.png';
+	image0.src = 'sky.png';
 }
 
 function loadTexture(texture, u_Sampler, image) {
@@ -111,6 +116,34 @@ function loadTexture(texture, u_Sampler, image) {
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
 	gl.uniform1i(u_Sampler, 0);
+}
+
+function handleClicks() {
+	let lastX, lastY;
+
+	canvas.onmousemove = (e) => {
+		if (e.buttons == 1) {
+			if (lastX === undefined && lastY === undefined) {
+				lastX = e.clientX;
+				lastY = e.clientY;
+			} else {
+				const dx = e.clientX - lastX;
+				const dy = e.clientY - lastY;
+				lastX = e.clientX;
+				lastY = e.clientY;
+
+				cameraAngleX -= dx;
+				cameraAngleX = (cameraAngleX + 540) % 360 - 180;
+				
+				cameraAngleY -= dy;
+			}
+		}
+	};
+
+	canvas.onmouseup = canvas.onmouseleave = () => {
+		lastX = undefined;
+		lastY = undefined;
+	};
 }
 
 function tick(ms) {
@@ -132,7 +165,7 @@ function renderAllShapes() {
 	// Clear <canvas>
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-	const rotateMat = new Matrix4();
+	const rotateMat = new Matrix4().rotate(cameraAngleY, 1, 0, 0).rotate(cameraAngleX, 0, 1, 0);
 	gl.uniformMatrix4fv(u_GlobalRotateMatrix, false, rotateMat.elements);
 
 	const base = new Matrix4().translate(-0.5, -0.5, -0.5);
@@ -142,4 +175,15 @@ function renderAllShapes() {
 	ground.matrix.scale(1.0, 0.1, 1.0);
 	ground.matrix.multiply(base);
 	ground.render();
+
+	const box = new Cube(TEX_UNIFORM_COLOR, 0x000ff);
+	box.matrix.translate(0.0, -0.3, 0.0);
+	box.matrix.scale(0.3, 0.3, 0.3);
+	box.matrix.multiply(base);
+	box.render();
+
+	const sky = new Cube(TEX_0);
+	sky.matrix.scale(5.0, 5.0, 5.0);
+	sky.matrix.multiply(base);
+	sky.render();
 }

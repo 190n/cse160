@@ -44,9 +44,15 @@ class Cube {
 		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(interleaved), gl.DYNAMIC_DRAW);
 	}
 
-	constructor(whichTexture, fragColor) {
+	constructor(whichTexture, colorHex) {
 		this.whichTexture = whichTexture;
-		this.fragColor = fragColor;
+		if (whichTexture == TEX_UNIFORM_COLOR) {
+			this.color = new Vector3([
+				((colorHex >> 16) & 0xff) / 255.0,
+				((colorHex >> 8) & 0xff) / 255.0,
+				((colorHex >> 0) & 0xff) / 255.0,
+			]);
+		}
 		this.matrix = new Matrix4();
 
 		if (cubeVertexBuffer === null) {
