@@ -22,34 +22,35 @@ const CUBE_TRIS = [
 let cubeVertexBuffer = null;
 
 class Cube {
-	constructor(colorHex) {
-		this.color = new Vector3([
-			((colorHex >> 16) & 0xff) / 255.0,
-			((colorHex >> 8) & 0xff) / 255.0,
-			((colorHex >> 0) & 0xff) / 255.0,
-		]);
+	static initBuffer() {
+		cubeVertexBuffer = gl.createBuffer();
+		if (!cubeVertexBuffer) {
+			throw new Error('Failed to create vertex buffer for cubes');
+		}
+		gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexBuffer);
+
+		const interleaved = [];
+		for (const { xyz, uv } of CUBE_TRIS) {
+			for (let point = 0; point < 3; point++) {
+				for (let i = 0; i < 3; i++) {
+					interleaved.push(xyz[3 * point + i]);
+				}
+				for (let i = 0; i < 2; i++) {
+					interleaved.push(uv[2 * point + i]);
+				}
+			}
+		}
+
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(interleaved), gl.DYNAMIC_DRAW);
+	}
+
+	constructor(whichTexture, fragColor) {
+		this.whichTexture = whichTexture;
+		this.fragColor = fragColor;
 		this.matrix = new Matrix4();
 
 		if (cubeVertexBuffer === null) {
-			cubeVertexBuffer = gl.createBuffer();
-			if (!cubeVertexBuffer) {
-				throw new Error('Failed to create vertex buffer for cubes');
-			}
-			gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexBuffer);
-
-			const interleaved = [];
-			for (const { xyz, uv } of CUBE_TRIS) {
-				for (let point = 0; point < 3; point++) {
-					for (let i = 0; i < 3; i++) {
-						interleaved.push(xyz[3 * point + i]);
-					}
-					for (let i = 0; i < 2; i++) {
-						interleaved.push(uv[2 * point + i]);
-					}
-				}
-			}
-
-			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(interleaved), gl.DYNAMIC_DRAW);
+			Cube.initBuffer();
 		}
 	}
 
@@ -61,11 +62,13 @@ class Cube {
 
 		gl.vertexAttribPointer(a_UV, 2, gl.FLOAT, false, 5 * Float32Array.BYTES_PER_ELEMENT, 3 * Float32Array.BYTES_PER_ELEMENT);
 		gl.enableVertexAttribArray(a_UV);
-		gl.uniform1i(u_WhichTexture, TEX_UNIFORM_COLOR);
+		gl.uniform1i(u_WhichTexture, this.whichTexture);
 
 		for (let i = 0; i < 6; i++) {
-			const light = [1.0, 0.7, 0.2, 0.4, 1.0, 0.2][i];
-			gl.uniform4f(u_FragColor, light * this.color.elements[0], light * this.color.elements[1], light * this.color.elements[2], 1.0);
+			if (this.whichTexture == TEX_UNIFORM_COLOR) {
+				const light = [1.0, 0.7, 0.2, 0.4, 1.0, 0.2][i];
+				gl.uniform4f(u_FragColor, light * this.color.elements[0], light * this.color.elements[1], light * this.color.elements[2], 1.0);
+			}
 			gl.drawArrays(gl.TRIANGLES, 6 * i, 6);
 		}
 	}
