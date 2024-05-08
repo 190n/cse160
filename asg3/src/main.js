@@ -1,26 +1,45 @@
 // ColoredPoint.js (c) 2012 matsuda
 // Vertex shader program
 const VSHADER_SOURCE = `
+precision mediump float;
 attribute vec4 a_Position;
+attribute vec2 a_UV;
+varying vec2 v_UV;
 uniform mat4 u_ModelMatrix;
 uniform mat4 u_GlobalRotateMatrix;
 
 void main() {
+	v_UV = a_UV;
 	gl_Position = u_GlobalRotateMatrix * u_ModelMatrix * a_Position;
 }
 `;
 
+const TEX_UNIFORM_COLOR = 1;
+const TEX_UV = 2;
+const TEX_0 = 3;
+
 // Fragment shader program
 const FSHADER_SOURCE = `
 precision mediump float;
+varying vec2 v_UV;
+uniform sampler2D u_Sampler0;
+uniform int u_WhichTexture;
 uniform vec4 u_FragColor;
 
 void main() {
-	gl_FragColor = u_FragColor;
+	if (u_WhichTexture == ${TEX_UNIFORM_COLOR}) {
+		gl_FragColor = u_FragColor;
+	} else if (u_WhichTexture == ${TEX_UV}) {
+		gl_FragColor = vec4(v_UV, 1.0, 1.0);
+	} else if (u_WhichTexture == ${TEX_0}) {
+		gl_FragColor = texture2D(u_Sampler0, v_UV);
+	} else {
+		gl_FragColor = vec4(1.0, 0.0, 1.0, 1.0);
+	}
 }
 `;
 
-let canvas, gl, a_Position, u_FragColor, u_ModelMatrix, u_GlobalRotateMatrix;
+let canvas, gl, a_Position, a_UV, u_ModelMatrix, u_GlobalRotateMatrix;
 let cameraAngleX = parseFloat(document.getElementById('angle').value);
 let tail1Angle = parseFloat(document.getElementById('tail1').value);
 let tail2Angle = parseFloat(document.getElementById('tail2').value);
@@ -40,8 +59,9 @@ function main() {
 	if (gl === null) {
 		return;
 	}
-	[a_Position, u_FragColor, u_ModelMatrix, u_GlobalRotateMatrix] = connectVariablesToGLSL();
+	connectVariablesToGLSL();
 	handleClicks();
+	initTextures();
 	requestAnimationFrame(tick);
 }
 
@@ -69,29 +89,38 @@ function setUpWebGL() {
 }
 
 function connectVariablesToGLSL() {
-	// Get the storage location of a_Position
-	const a_Position = gl.getAttribLocation(gl.program, 'a_Position');
-	if (a_Position < 0) {
-		throw new Error('Failed to get the storage location of a_Position');
-	}
+	[a_Position, a_UV] = ['a_Position', 'a_UV'].map(name => {
+		const attribute = gl.getAttribLocation(gl.program, name);
+		if (attribute < 0) {
+			throw new Error(`Failed to get the storage location of ${name}`);
+		}
+		return attribute;
+	});
 
-	// Get the storage location of u_FragColor
-	const u_FragColor = gl.getUniformLocation(gl.program, 'u_FragColor');
-	if (!u_FragColor) {
-		throw new Error('Failed to get the storage location of u_FragColor');
-	}
+	[u_ModelMatrix, u_GlobalRotateMatrix, u_Sampler0, u_FragColor, u_WhichTexture] =
+		['u_ModelMatrix', 'u_GlobalRotateMatrix', 'u_Sampler0', 'u_FragColor', 'u_WhichTexture'].map(name => {
+			const uniform = gl.getUniformLocation(gl.program, name);
+			if (uniform < 0) {
+				throw new Error(`Failed to get the storage location of ${name}`);
+			}
+			return uniform;
+		});
+}
 
-	const u_ModelMatrix = gl.getUniformLocation(gl.program, 'u_ModelMatrix');
-	if (!u_ModelMatrix) {
-		throw new Error('Failed to get the storage location of u_ModelMatrix');
-	}
+function initTextures() {
+	const texture0 = gl.createTexture();
+	const image0 = new Image();
+	image0.onload = () => loadTexture(texture0, u_Sampler0, image0);
+	image0.src = 'smpte.png';
+}
 
-	const u_GlobalRotateMatrix = gl.getUniformLocation(gl.program, 'u_GlobalRotateMatrix');
-	if (!u_GlobalRotateMatrix) {
-		throw new Error('Failed to get the storage location of u_GlobalRotateMatrix');
-	}
-
-	return [a_Position, u_FragColor, u_ModelMatrix, u_GlobalRotateMatrix];
+function loadTexture(texture, u_Sampler, image) {
+	gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+	gl.activeTexture(gl.TEXTURE0);
+	gl.bindTexture(gl.TEXTURE_2D, texture);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
+	gl.uniform1i(u_Sampler, 0);
 }
 
 function handleClicks() {
@@ -223,32 +252,6 @@ function renderAllShapes() {
 	rightEar.matrix.scale(0.05, 0.1, 0.1);
 	rightEar.matrix.multiply(base);
 	rightEar.render();
-
-	const tail1 = new Cylinder(0xffc080, 8);
-	tail1.matrix.translate(-0.4, 0.1, 0.0);
-	tail1.matrix.translate(0.0, -0.15, 0.0);
-	tail1.matrix.rotate(tail1Angle, 0.0, 0.0, 1.0);
-	tail1.matrix.translate(0.0, 0.15, 0.0);
-	const tail1Matrix = new Matrix4(tail1.matrix);
-	tail1.matrix.scale(0.08, 0.3, 0.08);
-	tail1.render();
-
-	const tail2 = new Cylinder(0xffc080, 8);
-	tail2.matrix.multiply(tail1Matrix);
-	tail2.matrix.translate(0.0, 0.15, 0.0);
-	tail2.matrix.rotate(tail2Angle, 0.0, 0.0, 1.0);
-	tail2.matrix.translate(0.0, 0.15, 0.0);
-	const tail2Matrix = new Matrix4(tail2.matrix);
-	tail2.matrix.scale(0.08, 0.3, 0.08);
-	tail2.render();
-
-	const tail3 = new Cylinder(0xffc080, 8);
-	tail3.matrix.multiply(tail2Matrix);
-	tail3.matrix.translate(0.0, 0.15, 0.0);
-	tail3.matrix.rotate(tail3Angle, 0.0, 0.0, 1.0);
-	tail3.matrix.translate(0.0, 0.15, 0.0);
-	tail3.matrix.scale(0.08, 0.3, 0.08);
-	tail3.render();
 
 	const legFL = new Cube(0xc06000);
 	legFL.matrix.translate(0.25, -0.35, 0.1);
