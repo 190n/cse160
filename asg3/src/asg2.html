@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>Blocky Animal</title>
+	</head>
+
+	<body onload="main()">
+		<canvas id="webgl" width="400" height="400">
+			Please use a browser that supports "canvas"
+		</canvas>
+
+		<p>
+			<code><span id="fps"></span> fps</code>
+		</p>
+
+		<p>
+			<label for="angle">
+				Camera Angle
+				<input type="range" min="-180" max="180" value="0" id="angle">
+			</label>
+		</p>
+		<p>
+			<label for="tail1">
+				Tail 1 Angle
+				<input type="range" min="45" max="90" value="60" id="tail1">
+			</label>
+		</p>
+		<p>
+			<label for="tail2">
+				Tail 2 Angle
+				<input type="range" min="-60" max="0" value="-15" id="tail2">
+			</label>
+		</p>
+		<p>
+			<label for="tail3">
+				Tail 3 Angle
+				<input type="range" min="-60" max="0" value="-15" id="tail3">
+			</label>
+		</p>
+		<p>
+			<button id="animate-off">Animation Off</button>
+			<button id="animate-on">Animation On</button>
+		</p>
+
+
+		<script src="../lib/webgl-utils.js"></script>
+		<script src="../lib/webgl-debug.js"></script>
+		<script src="../lib/cuon-utils.js"></script>
+		<script src="../lib/cuon-matrix-cse160.js"></script>
+		<script src="Triangle.js"></script>
+		<script src="Cube.js"></script>
+		<script src="Cylinder.js"></script>
+		<script src="main.js"></script>
+	</body>
+</html>
