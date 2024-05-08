@@ -18,12 +18,14 @@ void main() {
 const TEX_UNIFORM_COLOR = 1;
 const TEX_UV = 2;
 const TEX_0 = 3;
+const TEX_1 = 4;
 
 // Fragment shader program
 const FSHADER_SOURCE = `
 precision mediump float;
 varying vec2 v_UV;
 uniform sampler2D u_Sampler0;
+uniform sampler2D u_Sampler1;
 uniform int u_WhichTexture;
 uniform vec4 u_FragColor;
 
@@ -34,13 +36,15 @@ void main() {
 		gl_FragColor = vec4(v_UV, 1.0, 1.0);
 	} else if (u_WhichTexture == ${TEX_0}) {
 		gl_FragColor = texture2D(u_Sampler0, v_UV);
+	} else if (u_WhichTexture == ${TEX_1}) {
+		gl_FragColor = texture2D(u_Sampler1, v_UV);
 	} else {
 		gl_FragColor = vec4(1.0, 0.0, 1.0, 1.0);
 	}
 }
 `;
 
-let canvas, gl, a_Position, a_UV, u_ModelMatrix, u_GlobalRotateMatrix;
+let canvas, gl, a_Position, a_UV, u_ModelMatrix, u_GlobalRotateMatrix, u_FragColor, u_Sampler0, u_Sampler1;
 
 let cameraAngleX = 0;
 let cameraAngleY = 0;
@@ -92,8 +96,8 @@ function connectVariablesToGLSL() {
 		return attribute;
 	});
 
-	[u_ModelMatrix, u_GlobalRotateMatrix, u_Sampler0, u_FragColor, u_WhichTexture] =
-		['u_ModelMatrix', 'u_GlobalRotateMatrix', 'u_Sampler0', 'u_FragColor', 'u_WhichTexture'].map(name => {
+	[u_ModelMatrix, u_GlobalRotateMatrix, u_Sampler0, u_Sampler1, u_FragColor, u_WhichTexture] =
+		['u_ModelMatrix', 'u_GlobalRotateMatrix', 'u_Sampler0', 'u_Sampler1', 'u_FragColor', 'u_WhichTexture'].map(name => {
 			const uniform = gl.getUniformLocation(gl.program, name);
 			if (uniform < 0) {
 				throw new Error(`Failed to get the storage location of ${name}`);
@@ -105,17 +109,22 @@ function connectVariablesToGLSL() {
 function initTextures() {
 	const texture0 = gl.createTexture();
 	const image0 = new Image();
-	image0.onload = () => loadTexture(texture0, u_Sampler0, image0);
-	image0.src = 'sky.png';
+	image0.onload = () => loadTexture(texture0, u_Sampler0, image0, 0);
+	image0.src = 'grass.png';
+
+	const texture1 = gl.createTexture();
+	const image1 = new Image();
+	image1.onload = () => loadTexture(texture1, u_Sampler1, image1, 1);
+	image1.src = 'sky.png';
 }
 
-function loadTexture(texture, u_Sampler, image) {
+function loadTexture(texture, u_Sampler, image, slot) {
 	gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
-	gl.activeTexture(gl.TEXTURE0);
+	gl.activeTexture([gl.TEXTURE0, gl.TEXTURE1][slot]);
 	gl.bindTexture(gl.TEXTURE_2D, texture);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
-	gl.uniform1i(u_Sampler, 0);
+	gl.uniform1i(u_Sampler, slot);
 }
 
 function handleClicks() {
@@ -182,7 +191,7 @@ function renderAllShapes() {
 	box.matrix.multiply(base);
 	box.render();
 
-	const sky = new Cube(TEX_0);
+	const sky = new Cube(TEX_1);
 	sky.matrix.scale(5.0, 5.0, 5.0);
 	sky.matrix.multiply(base);
 	sky.render();
