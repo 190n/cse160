@@ -70,12 +70,14 @@ class Cube {
 		gl.enableVertexAttribArray(a_UV);
 		gl.uniform1i(u_WhichTexture, this.whichTexture);
 
-		for (let i = 0; i < 6; i++) {
-			if (this.whichTexture == TEX_UNIFORM_COLOR) {
+		if (this.whichTexture == TEX_UNIFORM_COLOR) {
+			for (let i = 0; i < 6; i++) {
 				const light = [1.0, 0.7, 0.2, 0.4, 1.0, 0.2][i];
 				gl.uniform4f(u_FragColor, light * this.color.elements[0], light * this.color.elements[1], light * this.color.elements[2], 1.0);
+				gl.drawArrays(gl.TRIANGLES, 6 * i, 6);
 			}
-			gl.drawArrays(gl.TRIANGLES, 6 * i, 6);
+		} else {
+			gl.drawArrays(gl.TRIANGLES, 0, 36);
 		}
 	}
 }
