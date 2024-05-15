@@ -64,6 +64,7 @@ function main() {
 	connectVariablesToGLSL();
 	initTextures();
 	handleClicks();
+	handleKeys();
 	requestAnimationFrame(tick);
 }
 
@@ -146,7 +147,6 @@ function handleClicks() {
 
 				camera.panLeft(dx / 8);
 				camera.panUp(dy / 8);
-				camera.updateMatrices();
 			}
 		}
 	};
@@ -157,8 +157,44 @@ function handleClicks() {
 	};
 }
 
+const keys = {
+	w: false,
+	a: false,
+	s: false,
+	d: false,
+	q: false,
+	e: false,
+}
+
+function handleKeys() {
+	window.onkeydown = (e) => {
+		switch (e.code) {
+			case 'KeyW': keys.w = true; break;
+			case 'KeyA': keys.a = true; break;
+			case 'KeyS': keys.s = true; break;
+			case 'KeyD': keys.d = true; break;
+			case 'KeyQ': keys.q = true; break;
+			case 'KeyE': keys.e = true; break;
+		}
+	};
+
+	window.onkeyup = (e) => {
+		switch (e.code) {
+			case 'KeyW': keys.w = false; break;
+			case 'KeyA': keys.a = false; break;
+			case 'KeyS': keys.s = false; break;
+			case 'KeyD': keys.d = false; break;
+			case 'KeyQ': keys.q = false; break;
+			case 'KeyE': keys.e = false; break;
+		}
+	};
+}
+
+let lastTick = 0;
+
 function tick(ms) {
 	const before = performance.now();
+	moveCamera(ms - lastTick);
 	renderAllShapes();
 	const elapsed = performance.now() - before;
 	const fps = 1000.0 / elapsed;
@@ -169,7 +205,31 @@ function tick(ms) {
 		fpsEstimate = 0.99 * fpsEstimate + 0.01 * fps;
 	}
 	document.getElementById('fps').textContent = Math.floor(fpsEstimate).toString();
+	lastTick = ms;
 	requestAnimationFrame(tick);
+}
+
+function moveCamera(delta) {
+	const speed = 1 / 500;
+	if (keys.w) {
+		camera.moveForward(delta * speed);
+	}
+	if (keys.s) {
+		camera.moveBackward(delta * speed);
+	}
+	if (keys.a) {
+		camera.moveLeft(delta * speed);
+	}
+	if (keys.d) {
+		camera.moveRight(delta * speed);
+	}
+	if (keys.q) {
+		camera.panLeft(delta / 5);
+	}
+	if (keys.e) {
+		camera.panRight(delta / 5);
+	}
+	camera.updateMatrices();
 }
 
 function renderAllShapes() {
@@ -194,7 +254,7 @@ function renderAllShapes() {
 	box.render();
 
 	const sky = new Cube(TEX_1);
-	sky.matrix.scale(5.0, 5.0, 5.0);
+	sky.matrix.scale(10.0, 10.0, 10.0);
 	sky.matrix.multiply(base);
 	sky.render();
 }
