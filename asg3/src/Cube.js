@@ -19,6 +19,19 @@ const CUBE_TRIS = [
 	{ xyz: [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0], uv: [0.0, 0.0, 0.0, 1.0, 1.0, 1.0] },
 ];
 
+const CUBE_VERTS_INTERLEAVED = [];
+
+for (const { xyz, uv } of CUBE_TRIS) {
+	for (let point = 0; point < 3; point++) {
+		for (let i = 0; i < 3; i++) {
+			CUBE_VERTS_INTERLEAVED.push(xyz[3 * point + i]);
+		}
+		for (let i = 0; i < 2; i++) {
+			CUBE_VERTS_INTERLEAVED.push(uv[2 * point + i]);
+		}
+	}
+}
+
 let cubeVertexBuffer = null;
 
 class Cube {
@@ -29,19 +42,7 @@ class Cube {
 		}
 		gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexBuffer);
 
-		const interleaved = [];
-		for (const { xyz, uv } of CUBE_TRIS) {
-			for (let point = 0; point < 3; point++) {
-				for (let i = 0; i < 3; i++) {
-					interleaved.push(xyz[3 * point + i]);
-				}
-				for (let i = 0; i < 2; i++) {
-					interleaved.push(uv[2 * point + i]);
-				}
-			}
-		}
-
-		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(interleaved), gl.DYNAMIC_DRAW);
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(CUBE_VERTS_INTERLEAVED), gl.DYNAMIC_DRAW);
 	}
 
 	constructor(whichTexture, colorHex) {

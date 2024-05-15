@@ -1,9 +1,9 @@
 class Camera {
-	constructor() {
-		this.fov = 60;
-		this.eye = new Vector3([0, 0, 0]);
-		this.at = new Vector3([0, 0, -1]);
-		this.up = new Vector3([0, 1, 0]);
+	constructor(fov, eye, at, up) {
+		this.fov = fov;
+		this.eye = eye;
+		this.at = at;
+		this.up = up;
 		this.viewMatrix = new Matrix4();
 		this.projectionMatrix = new Matrix4();
 		this.updateMatrices();
