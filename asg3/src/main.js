@@ -20,6 +20,7 @@ const TEX_UNIFORM_COLOR = 1;
 const TEX_UV = 2;
 const TEX_0 = 3;
 const TEX_1 = 4;
+const TEX_2 = 5;
 
 // Fragment shader program
 const FSHADER_SOURCE = `
@@ -27,6 +28,7 @@ precision mediump float;
 varying vec2 v_UV;
 uniform sampler2D u_Sampler0;
 uniform sampler2D u_Sampler1;
+uniform sampler2D u_Sampler2;
 uniform int u_WhichTexture;
 uniform vec4 u_FragColor;
 
@@ -39,13 +41,15 @@ void main() {
 		gl_FragColor = texture2D(u_Sampler0, v_UV);
 	} else if (u_WhichTexture == ${TEX_1}) {
 		gl_FragColor = texture2D(u_Sampler1, v_UV);
+	} else if (u_WhichTexture == ${TEX_2}) {
+		gl_FragColor = texture2D(u_Sampler2, v_UV);
 	} else {
 		gl_FragColor = vec4(1.0, 0.0, 1.0, 1.0);
 	}
 }
 `;
 
-let canvas, gl, a_Position, a_UV, u_ModelMatrix, u_FragColor, u_Sampler0, u_Sampler1;
+let canvas, gl, a_Position, a_UV, u_ModelMatrix, u_FragColor, u_Sampler0, u_Sampler1, u_Sampler2;
 
 let fpsEstimate = -1;
 
@@ -54,7 +58,7 @@ let camera;
 function main() {
 	// Retrieve <canvas> element
 	canvas = document.getElementById('webgl');
-	camera = new Camera(60, new Vector3([2.5, 0.5, 0.5]), new Vector3([2.5, 0.5, -0.5]), new Vector3([0, 1, 0]));
+	camera = new Camera(60, new Vector3([12, 0.5, 5]), new Vector3([11, 0.5, 5]), new Vector3([0, 1, 0]));
 	camera.moveBackward(1);
 	camera.updateMatrices();
 	gl = setUpWebGL();
@@ -100,8 +104,8 @@ function connectVariablesToGLSL() {
 		return attribute;
 	});
 
-	[u_ModelMatrix, u_Sampler0, u_Sampler1, u_FragColor, u_WhichTexture, u_ViewMatrix, u_ProjectionMatrix] =
-		['u_ModelMatrix', 'u_Sampler0', 'u_Sampler1', 'u_FragColor', 'u_WhichTexture', 'u_ViewMatrix', 'u_ProjectionMatrix'].map(name => {
+	[u_ModelMatrix, u_Sampler0, u_Sampler1, u_Sampler2, u_FragColor, u_WhichTexture, u_ViewMatrix, u_ProjectionMatrix] =
+		['u_ModelMatrix', 'u_Sampler0', 'u_Sampler1', 'u_Sampler2', 'u_FragColor', 'u_WhichTexture', 'u_ViewMatrix', 'u_ProjectionMatrix'].map(name => {
 			const uniform = gl.getUniformLocation(gl.program, name);
 			if (uniform < 0) {
 				throw new Error(`Failed to get the storage location of ${name}`);
@@ -114,17 +118,22 @@ function initTextures() {
 	const texture0 = gl.createTexture();
 	const image0 = new Image();
 	image0.onload = () => loadTexture(texture0, u_Sampler0, image0, 0);
-	image0.src = 'grass.png';
+	image0.src = 'stonebrick.png';
 
 	const texture1 = gl.createTexture();
 	const image1 = new Image();
 	image1.onload = () => loadTexture(texture1, u_Sampler1, image1, 1);
 	image1.src = 'sky.png';
+
+	const texture2 = gl.createTexture();
+	const image2 = new Image();
+	image2.onload = () => loadTexture(texture2, u_Sampler2, image2, 2);
+	image2.src = 'dirt.png';
 }
 
 function loadTexture(texture, u_Sampler, image, slot) {
 	gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
-	gl.activeTexture([gl.TEXTURE0, gl.TEXTURE1][slot]);
+	gl.activeTexture([gl.TEXTURE0, gl.TEXTURE1, gl.TEXTURE2][slot]);
 	gl.bindTexture(gl.TEXTURE_2D, texture);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
@@ -232,7 +241,10 @@ function moveCamera(delta) {
 	camera.updateMatrices();
 }
 
-const world = new World([[0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0,0,0,1,0],[0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,2,0,0,0,0,0,0,2,0,0,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0],[1,0,0,0,3,0,2,0,0,1,2,0,0,0,0,0,0,1,0,0,0,0,0,0,0,2,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,1,1,0,0,0,0,1,0,0,0,0,0,0,0,3,0],[0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,2,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,1,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0],[1,0,0,0,0,2,0,0,0,0,0,0,0,0,1,0,0,1,1,0,0,0,1,0,0,0,0,0,4,0,0,0],[0,0,0,0,0,0,0,0,0,0,2,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,2,0],[0,0,0,0,0,0,0,1,1,2,0,1,0,0,0,0,0,1,0,0,0,2,0,0,1,0,0,0,0,0,0,1],[0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,2,0,1,0,0,0,0],[0,0,0,0,0,0,1,0,0,1,1,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,1,0],[0,0,0,0,0,0,0,0,0,0,0,1,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,3,0,0],[0,0,0,0,0,1,0,0,0,1,0,1,0,0,1,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,0,0,0,1,0,0,0,0,0,0,0],[0,2,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,2,0,0,0,0,0,1,0],[0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0],[0,4,0,1,1,0,0,1,2,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,1,0],[0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,2,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,0],[0,0,0,1,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0],[0,0,0,0,0,2,0,0,0,0,0,0,0,0,1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0],[0,0,0,0,0,0,0,0,2,0,1,0,1,0,0,0,0,0,1,0,1,0,1,0,0,2,0,0,0,0,1,0],[0,0,0,0,2,0,0,0,1,0,0,0,0,2,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,2],[0,0,0,0,0,0,0,0,4,0,0,0,0,1,0,0,0,0,0,2,0,0,0,0,0,0,4,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0],[0,2,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,2,0,0,0,4,2,0,0,0,0,0,1,1,0,0],[0,1,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,2,0,0,2,0,1,0,0,0,0,0],[0,0,0,0,0,1,1,0,0,3,1,0,0,0,1,0,0,0,2,0,0,0,1,0,3,0,0,0,0,0,0,0]], TEX_0);
+const world = new World(
+	[[0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0,0,0,1,0],[0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,2,0,0,0,0,0,0,2,0,0,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0],[1,0,0,0,3,0,2,0,0,1,2,0,0,0,0,0,0,1,0,0,0,0,0,0,0,2,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,1,1,0,0,0,0,1,0,0,0,0,0,0,0,3,0],[0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,2,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,1,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0],[1,0,0,0,0,2,0,0,0,0,0,0,0,0,1,0,0,1,1,0,0,0,1,0,0,0,0,0,4,0,0,0],[0,0,0,0,0,0,0,0,0,0,2,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,2,0],[0,0,0,0,0,0,0,1,1,2,0,1,0,0,0,0,0,1,0,0,0,2,0,0,1,0,0,0,0,0,0,1],[0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,2,0,1,0,0,0,0],[0,0,0,0,0,0,1,0,0,1,1,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,1,0],[0,0,0,0,0,0,0,0,0,0,0,1,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,3,0,0],[0,0,0,0,0,1,0,0,0,1,0,1,0,0,1,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,0,0,0,1,0,0,0,0,0,0,0],[0,2,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,2,0,0,0,0,0,1,0],[0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0],[0,4,0,1,1,0,0,1,2,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,1,0],[0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,2,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,0],[0,0,0,1,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0],[0,0,0,0,0,2,0,0,0,0,0,0,0,0,1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0],[0,0,0,0,0,0,0,0,2,0,1,0,1,0,0,0,0,0,1,0,1,0,1,0,0,2,0,0,0,0,1,0],[0,0,0,0,2,0,0,0,1,0,0,0,0,2,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,2],[0,0,0,0,0,0,0,0,4,0,0,0,0,1,0,0,0,0,0,2,0,0,0,0,0,0,4,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0],[0,2,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,2,0,0,0,4,2,0,0,0,0,0,1,1,0,0],[0,1,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,2,0,0,2,0,1,0,0,0,0,0],[0,0,0,0,0,1,1,0,0,3,1,0,0,0,1,0,0,0,2,0,0,0,1,0,3,0,0,0,0,0,0,0]],
+	TEX_0
+);
 
 function renderAllShapes() {
 	// Clear <canvas>
@@ -241,23 +253,25 @@ function renderAllShapes() {
 	gl.uniformMatrix4fv(u_ProjectionMatrix, false, camera.projectionMatrix.elements);
 	gl.uniformMatrix4fv(u_ViewMatrix, false, camera.viewMatrix.elements);
 
-	const base = new Matrix4().translate(-0.5, -0.5, -0.5);
-
-	const ground = new Cube(TEX_UV);
-	ground.matrix.translate(0.0, -0.05, 0.0);
+	const ground = new Cube(TEX_2);
 	ground.matrix.scale(50.0, 0.1, 50.0);
-	ground.matrix.multiply(base);
+	ground.matrix.translate(-0.5, -1, -0.5);
 	ground.render();
 
-	const box = new Cube(TEX_UNIFORM_COLOR, 0x000ff);
-	box.matrix.translate(0.0, -0.3, 0.0);
-	box.matrix.scale(0.3, 0.3, 0.3);
-	box.matrix.multiply(base);
-	box.render();
+	const box1 = new Cube(TEX_UNIFORM_COLOR, 0x000ff);
+	box1.matrix.translate(9, 0, 6);
+	box1.matrix.scale(0.7, 0.7, 0.7);
+	box1.render();
+
+	const box2 = new Cube(TEX_UNIFORM_COLOR, 0xff8080);
+	box2.matrix.translate(9, 0.7, 6);
+	box2.matrix.rotate(30, 0, 1, 0);
+	box2.matrix.scale(0.5, 0.5, 0.5);
+	box2.render();
 
 	const sky = new Cube(TEX_1);
 	sky.matrix.scale(100.0, 100.0, 100.0);
-	sky.matrix.multiply(base);
+	sky.matrix.translate(-0.5, -0.5, -0.5);
 	sky.render();
 
 	world.render();
