@@ -6,12 +6,13 @@ attribute vec4 a_Position;
 attribute vec2 a_UV;
 varying vec2 v_UV;
 uniform mat4 u_ModelMatrix;
-uniform mat4 u_GlobalRotateMatrix;
+uniform mat4 u_ViewMatrix;
+uniform mat4 u_ProjectionMatrix;
 
 void main() {
 	v_UV = a_UV;
-	vec4 pos = u_GlobalRotateMatrix * u_ModelMatrix * a_Position;
-	gl_Position = vec4(pos.xy, (pos.z - 8.0) / 10.0, pos.w);
+	vec4 pos = u_ProjectionMatrix * u_ViewMatrix * u_ModelMatrix * a_Position;
+	gl_Position = pos;
 }
 `;
 
@@ -44,16 +45,18 @@ void main() {
 }
 `;
 
-let canvas, gl, a_Position, a_UV, u_ModelMatrix, u_GlobalRotateMatrix, u_FragColor, u_Sampler0, u_Sampler1;
-
-let cameraAngleX = 0;
-let cameraAngleY = 0;
+let canvas, gl, a_Position, a_UV, u_ModelMatrix, u_FragColor, u_Sampler0, u_Sampler1;
 
 let fpsEstimate = -1;
+
+let camera;
 
 function main() {
 	// Retrieve <canvas> element
 	canvas = document.getElementById('webgl');
+	camera = new Camera();
+	camera.moveBackward(1);
+	camera.updateMatrices();
 	gl = setUpWebGL();
 	if (gl === null) {
 		return;
@@ -96,8 +99,8 @@ function connectVariablesToGLSL() {
 		return attribute;
 	});
 
-	[u_ModelMatrix, u_GlobalRotateMatrix, u_Sampler0, u_Sampler1, u_FragColor, u_WhichTexture] =
-		['u_ModelMatrix', 'u_GlobalRotateMatrix', 'u_Sampler0', 'u_Sampler1', 'u_FragColor', 'u_WhichTexture'].map(name => {
+	[u_ModelMatrix, u_Sampler0, u_Sampler1, u_FragColor, u_WhichTexture, u_ViewMatrix, u_ProjectionMatrix] =
+		['u_ModelMatrix', 'u_Sampler0', 'u_Sampler1', 'u_FragColor', 'u_WhichTexture', 'u_ViewMatrix', 'u_ProjectionMatrix'].map(name => {
 			const uniform = gl.getUniformLocation(gl.program, name);
 			if (uniform < 0) {
 				throw new Error(`Failed to get the storage location of ${name}`);
@@ -141,10 +144,9 @@ function handleClicks() {
 				lastX = e.clientX;
 				lastY = e.clientY;
 
-				cameraAngleX -= dx;
-				cameraAngleX = (cameraAngleX + 540) % 360 - 180;
-				
-				cameraAngleY -= dy;
+				camera.panLeft(dx / 8);
+				camera.panUp(dy / 8);
+				camera.updateMatrices();
 			}
 		}
 	};
@@ -174,8 +176,8 @@ function renderAllShapes() {
 	// Clear <canvas>
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-	const rotateMat = new Matrix4().rotate(cameraAngleY, 1, 0, 0).rotate(cameraAngleX, 0, 1, 0);
-	gl.uniformMatrix4fv(u_GlobalRotateMatrix, false, rotateMat.elements);
+	gl.uniformMatrix4fv(u_ProjectionMatrix, false, camera.projectionMatrix.elements);
+	gl.uniformMatrix4fv(u_ViewMatrix, false, camera.viewMatrix.elements);
 
 	const base = new Matrix4().translate(-0.5, -0.5, -0.5);
 
