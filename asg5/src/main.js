@@ -38,11 +38,11 @@ scene.add(light);
 const objLoader = new OBJLoader();
 const mtlLoader = new MTLLoader();
 // plant model from https://free3d.com/3d-model/indoor-pot-plant-77983.html
-mtlLoader.load('indoor plant_02.mtl', (mtl) => {
+mtlLoader.load('bookshelf.mtl', (mtl) => {
 	mtl.preload();
 	objLoader.setMaterials(mtl);
-	objLoader.load('indoor plant_02.obj', (root) => {
-		root.position.y -= 2;
+	objLoader.load('bookshelf.obj', (root) => {
+		// root.position.y -= 2;
 		scene.add(root);
 	});
 });
