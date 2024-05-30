@@ -56,14 +56,22 @@ class Sphere {
 			]);
 		}
 		this.matrix = new Matrix4();
+		this.normalMatrix = new Matrix4();
+	}
 
-		if (sphereVertexBuffer === null) {
-			Sphere.initBuffer();
-		}
+	setNormalMatrix() {
+		this.normalMatrix.setInverseOf(this.matrix);
+		this.normalMatrix.transpose();
 	}
 
 	render() {
+		if (sphereVertexBuffer === null) {
+			Sphere.initBuffer();
+		}
+
 		gl.uniformMatrix4fv(u_ModelMatrix, false, this.matrix.elements);
+		gl.uniformMatrix4fv(u_NormalMatrix, false, this.normalMatrix.elements);
+
 		gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexBuffer);
 		gl.vertexAttribPointer(a_Position, 3, gl.FLOAT, false, 8 * Float32Array.BYTES_PER_ELEMENT, 0);
 		gl.enableVertexAttribArray(a_Position);

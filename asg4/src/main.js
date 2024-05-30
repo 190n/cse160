@@ -8,21 +8,26 @@ attribute vec3 a_Normal;
 
 varying vec2 v_UV;
 varying vec3 v_Normal;
-varying float v_Lighting;
+varying vec3 v_LightDir;
+varying vec3 v_ViewDir;
 
 uniform mat4 u_ModelMatrix;
 uniform mat4 u_ViewMatrix;
 uniform mat4 u_ProjectionMatrix;
+uniform mat4 u_NormalMatrix;
 uniform vec3 u_LightPos;
+uniform vec3 u_CameraPos;
 
 void main() {
 	v_UV = a_UV;
-	vec4 pos = u_ProjectionMatrix * u_ViewMatrix * u_ModelMatrix * a_Position;
-	gl_Position = pos;
-	v_Normal = a_Normal;
 
-	vec3 light = normalize(u_LightPos - a_Position.xyz);
-	v_Lighting = dot(light, v_Normal);
+	vec4 worldPos = u_ModelMatrix * a_Position;
+
+	gl_Position = u_ProjectionMatrix * u_ViewMatrix * worldPos;
+
+	v_Normal = normalize(vec3(u_NormalMatrix * vec4(a_Normal, 1)));
+	v_LightDir = normalize(u_LightPos - worldPos.xyz / worldPos.w);
+	v_ViewDir = normalize(u_CameraPos - worldPos.xyz / worldPos.w);
 }
 `;
 
@@ -39,7 +44,8 @@ precision mediump float;
 
 varying vec2 v_UV;
 varying vec3 v_Normal;
-varying float v_Lighting;
+varying vec3 v_LightDir;
+varying vec3 v_ViewDir;
 
 uniform sampler2D u_Sampler0;
 uniform sampler2D u_Sampler1;
@@ -47,10 +53,23 @@ uniform sampler2D u_Sampler2;
 uniform int u_WhichTexture;
 uniform vec4 u_FragColor;
 uniform vec3 u_LightPos;
+uniform vec3 u_LightColor;
+
+const float kDiffuse = 0.5;
+const float kAmbient = 0.2;
+const float kSpecular = 0.5;
+const float alpha = 5.0;
 
 void main() {
+	float diffuse = clamp(dot(v_Normal, v_LightDir), 0.0, 1.0);
+	
+	vec3 reflected = normalize(2.0 * dot(v_Normal, v_LightDir) * v_Normal - v_LightDir);
+	float specular = kSpecular * clamp(pow(dot(reflected, v_ViewDir), alpha), 0.0, 1.0);
+
+	float lightAmount = kDiffuse * diffuse + kAmbient;
+
 	if (u_WhichTexture == ${TEX_UNIFORM_COLOR}) {
-		gl_FragColor = u_FragColor;
+		gl_FragColor = vec4(u_FragColor.rgb * lightAmount * u_LightColor, u_FragColor.a) + vec4(specular * u_LightColor, 1.0);
 	} else if (u_WhichTexture == ${TEX_UV}) {
 		gl_FragColor = vec4(v_UV, 1.0, 1.0);
 	} else if (u_WhichTexture == ${TEX_0}) {
@@ -60,16 +79,14 @@ void main() {
 	} else if (u_WhichTexture == ${TEX_2}) {
 		gl_FragColor = texture2D(u_Sampler2, v_UV);
 	} else if (u_WhichTexture == ${TEX_NORMAL}) {
-		// gl_FragColor = v_Lighting * vec4(v_Normal / vec3(2.0) + vec3(0.5), 1.0);
-		gl_FragColor = vec4(v_Lighting, 0, 0, 1);
-		// gl_FragColor = vec4(v_Normal, 1.0);
+		gl_FragColor = vec4(v_Normal / 2.0 + 0.5, 1.0);
 	} else {
 		gl_FragColor = vec4(1.0, 0.0, 1.0, 1.0);
 	}
 }
 `;
 
-let canvas, gl, a_Position, a_UV, a_Normal, u_ModelMatrix, u_FragColor, u_Sampler0, u_Sampler1, u_Sampler2;
+let canvas, gl, a_Position, a_UV, a_Normal, u_ModelMatrix, u_NormalMatrix, u_FragColor, u_Sampler0, u_Sampler1, u_Sampler2, u_LightPos, u_CameraPos, u_LightColor;
 
 let fpsEstimate = -1;
 
@@ -79,9 +96,19 @@ let lightAngle = 0;
 let lightPos = new Vector3();
 let lightAnimating = true;
 
+let savedLightColor = null;
+let lightColor = new Vector3([1, 1, 1]);
+
 const lightAngleElem = document.getElementById('light-angle');
 const lightAnimateElem = document.getElementById('light-animate');
 lightAnimateElem.checked = true;
+const lightColorElem = document.getElementById('light-color');
+lightColorElem.value = '#ffffff';
+const lightEnableElem = document.getElementById('light-enable');
+lightEnableElem.checked = true;
+const normalsElem = document.getElementById('normals');
+normalsElem.checked = false;
+
 
 function main() {
 	// Retrieve <canvas> element
@@ -132,8 +159,8 @@ function connectVariablesToGLSL() {
 		return attribute;
 	});
 
-	[u_ModelMatrix, u_Sampler0, u_Sampler1, u_Sampler2, u_FragColor, u_WhichTexture, u_ViewMatrix, u_ProjectionMatrix, u_LightPos] =
-		['u_ModelMatrix', 'u_Sampler0', 'u_Sampler1', 'u_Sampler2', 'u_FragColor', 'u_WhichTexture', 'u_ViewMatrix', 'u_ProjectionMatrix', 'u_LightPos'].map(name => {
+	[u_ModelMatrix, u_Sampler0, u_Sampler1, u_Sampler2, u_FragColor, u_WhichTexture, u_ViewMatrix, u_ProjectionMatrix, u_LightPos, u_NormalMatrix, u_CameraPos, u_LightColor] =
+		['u_ModelMatrix', 'u_Sampler0', 'u_Sampler1', 'u_Sampler2', 'u_FragColor', 'u_WhichTexture', 'u_ViewMatrix', 'u_ProjectionMatrix', 'u_LightPos', 'u_NormalMatrix', 'u_CameraPos', 'u_LightColor'].map(name => {
 			const uniform = gl.getUniformLocation(gl.program, name);
 			if (uniform < 0) {
 				throw new Error(`Failed to get the storage location of ${name}`);
@@ -201,6 +228,42 @@ function handleClicks() {
 
 	lightAnimateElem.onchange = (e) => {
 		lightAnimating = e.target.checked;
+	};
+
+	lightColorElem.onchange = (e) => {
+		const hexString = e.target.value;
+		const red = parseInt(hexString.substring(1, 3), 16);
+		const green = parseInt(hexString.substring(3, 5), 16);
+		const blue = parseInt(hexString.substring(5, 7), 16);
+
+		const newColor = new Vector3([red / 255, green / 255, blue / 255])
+		if (savedLightColor !== null) {
+			savedLightColor = newColor;
+		} else {
+			lightColor = newColor;
+		}
+	};
+
+	lightEnableElem.onchange = (e) => {
+		if (e.target.checked) {
+			lightColor = savedLightColor;
+			savedLightColor = null;
+		} else {
+			savedLightColor = lightColor;
+			lightColor = new Vector3([0, 0, 0]);
+		}
+	};
+
+	normalsElem.onchange = (e) => {
+		if (e.target.checked) {
+			box1.whichTexture = TEX_NORMAL;
+			box2.whichTexture = TEX_NORMAL;
+			sphere.whichTexture = TEX_NORMAL;
+		} else {
+			box1.whichTexture = TEX_UNIFORM_COLOR;
+			box2.whichTexture = TEX_UNIFORM_COLOR;
+			sphere.whichTexture = TEX_UNIFORM_COLOR;
+		}
 	}
 }
 
@@ -289,6 +352,35 @@ function moveCamera(delta) {
 	camera.updateMatrices();
 }
 
+const ground = new Cube(TEX_2);
+ground.matrix.scale(50.0, 0.1, 50.0);
+ground.matrix.translate(-0.5, -1, -0.5);
+ground.setNormalMatrix();
+
+const box1 = new Cube(TEX_UNIFORM_COLOR, 0x0000ff);
+box1.matrix.translate(-1, 0, 2);
+box1.matrix.scale(0.7, 0.7, 0.7);
+box1.setNormalMatrix();
+
+const box2 = new Cube(TEX_UNIFORM_COLOR, 0xff0000);
+box2.matrix.translate(-1, 0.7, 2);
+box2.matrix.rotate(30, 0, 1, 0);
+box2.matrix.scale(0.5, 0.5, 0.5);
+box2.setNormalMatrix();
+
+const sky = new Cube(TEX_1);
+sky.matrix.scale(100.0, 100.0, 100.0);
+sky.matrix.translate(-0.5, -0.5, -0.5);
+sky.setNormalMatrix();
+
+const sphere = new Sphere(TEX_UNIFORM_COLOR, 0x00c000);
+sphere.matrix.translate(0, 2, 0);
+sphere.setNormalMatrix();
+
+const lightIndicator = new Cube(TEX_UNIFORM_COLOR, 0xffffff);
+
+const shapes = [ground, box1, box2, sky, sphere, lightIndicator];
+
 function renderAllShapes() {
 	// Clear <canvas>
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -296,34 +388,13 @@ function renderAllShapes() {
 	gl.uniformMatrix4fv(u_ProjectionMatrix, false, camera.projectionMatrix.elements);
 	gl.uniformMatrix4fv(u_ViewMatrix, false, camera.viewMatrix.elements);
 	gl.uniform3f(u_LightPos, ...lightPos.elements);
+	gl.uniform3f(u_CameraPos, ...camera.eye.elements);
+	gl.uniform3f(u_LightColor, ...lightColor.elements);
 
-	const ground = new Cube(TEX_2);
-	ground.matrix.scale(50.0, 0.1, 50.0);
-	ground.matrix.translate(-0.5, -1, -0.5);
-	ground.render();
-
-	const box1 = new Cube(TEX_NORMAL);
-	box1.matrix.translate(-1, 0, 2);
-	box1.matrix.scale(0.7, 0.7, 0.7);
-	box1.render();
-
-	const box2 = new Cube(TEX_0);
-	box2.matrix.translate(-1, 0.7, 2);
-	box2.matrix.rotate(30, 0, 1, 0);
-	box2.matrix.scale(0.5, 0.5, 0.5);
-	box2.render();
-
-	const sky = new Cube(TEX_1);
-	sky.matrix.scale(100.0, 100.0, 100.0);
-	sky.matrix.translate(-0.5, -0.5, -0.5);
-	sky.render();
-
-	const sphere = new Sphere(TEX_NORMAL);
-	sphere.matrix.translate(0, 2, 0);
-	sphere.render();
-
-	const lightIndicator = new Cube(TEX_UNIFORM_COLOR, 0x800000);
-	lightIndicator.matrix.translate(...lightPos.elements);
+	lightIndicator.matrix.setTranslate(...lightPos.elements);
 	lightIndicator.matrix.scale(0.2, 0.2, 0.2);
-	lightIndicator.render();
+
+	for (const s of shapes) {
+		s.render();
+	}
 }
