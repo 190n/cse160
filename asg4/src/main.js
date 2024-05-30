@@ -295,7 +295,7 @@ function renderAllShapes() {
 	ground.matrix.translate(-0.5, -1, -0.5);
 	ground.render();
 
-	const box1 = new Cube(TEX_NORMAL, 0x000ff);
+	const box1 = new Cube(TEX_NORMAL);
 	box1.matrix.translate(9, 0, 6);
 	box1.matrix.scale(0.7, 0.7, 0.7);
 	box1.render();
@@ -310,4 +310,8 @@ function renderAllShapes() {
 	sky.matrix.scale(100.0, 100.0, 100.0);
 	sky.matrix.translate(-0.5, -0.5, -0.5);
 	sky.render();
+
+	const sphere = new Sphere(TEX_NORMAL);
+	sphere.matrix.translate(0, 2, 0);
+	sphere.render();
 }
