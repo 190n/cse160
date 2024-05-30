@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>Lighting</title>
+	</head>
+
+	<body onload="main()">
+		<canvas id="webgl" width="960" height="640">
+			Please use a browser that supports "canvas"
+		</canvas>
+
+		<p>
+			<code><span id="fps"></span> fps</code>
+		</p>
+
+		<p>
+			<button id="add">Add Block</button>
+			<button id="delete">Delete Block</button>
+		</p>
+
+
+		<script src="../lib/webgl-utils.js"></script>
+		<script src="../lib/webgl-debug.js"></script>
+		<script src="../lib/cuon-utils.js"></script>
+		<script src="../lib/cuon-matrix-cse160.js"></script>
+		<script src="Cube.js"></script>
+		<script src="Camera.js"></script>
+		<script src="main.js"></script>
+	</body>
+</html>
