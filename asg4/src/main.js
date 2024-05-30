@@ -8,16 +8,21 @@ attribute vec3 a_Normal;
 
 varying vec2 v_UV;
 varying vec3 v_Normal;
+varying float v_Lighting;
 
 uniform mat4 u_ModelMatrix;
 uniform mat4 u_ViewMatrix;
 uniform mat4 u_ProjectionMatrix;
+uniform vec3 u_LightPos;
 
 void main() {
 	v_UV = a_UV;
 	vec4 pos = u_ProjectionMatrix * u_ViewMatrix * u_ModelMatrix * a_Position;
 	gl_Position = pos;
 	v_Normal = a_Normal;
+
+	vec3 light = normalize(u_LightPos - a_Position.xyz);
+	v_Lighting = dot(light, v_Normal);
 }
 `;
 
@@ -34,12 +39,14 @@ precision mediump float;
 
 varying vec2 v_UV;
 varying vec3 v_Normal;
+varying float v_Lighting;
 
 uniform sampler2D u_Sampler0;
 uniform sampler2D u_Sampler1;
 uniform sampler2D u_Sampler2;
 uniform int u_WhichTexture;
 uniform vec4 u_FragColor;
+uniform vec3 u_LightPos;
 
 void main() {
 	if (u_WhichTexture == ${TEX_UNIFORM_COLOR}) {
@@ -53,7 +60,9 @@ void main() {
 	} else if (u_WhichTexture == ${TEX_2}) {
 		gl_FragColor = texture2D(u_Sampler2, v_UV);
 	} else if (u_WhichTexture == ${TEX_NORMAL}) {
-		gl_FragColor = vec4(v_Normal / vec3(2.0) + vec3(0.5), 1.0);
+		// gl_FragColor = v_Lighting * vec4(v_Normal / vec3(2.0) + vec3(0.5), 1.0);
+		gl_FragColor = vec4(v_Lighting, 0, 0, 1);
+		// gl_FragColor = vec4(v_Normal, 1.0);
 	} else {
 		gl_FragColor = vec4(1.0, 0.0, 1.0, 1.0);
 	}
@@ -66,10 +75,18 @@ let fpsEstimate = -1;
 
 let camera;
 
+let lightAngle = 0;
+let lightPos = new Vector3();
+let lightAnimating = true;
+
+const lightAngleElem = document.getElementById('light-angle');
+const lightAnimateElem = document.getElementById('light-animate');
+lightAnimateElem.checked = true;
+
 function main() {
 	// Retrieve <canvas> element
 	canvas = document.getElementById('webgl');
-	camera = new Camera(60, new Vector3([12, 0.5, 5]), new Vector3([11, 0.5, 5]), new Vector3([0, 1, 0]));
+	camera = new Camera(60, new Vector3([2, 0.5, 3.5]), new Vector3([0, 0.5, 0]), new Vector3([0, 1, 0]));
 	camera.moveBackward(1);
 	camera.updateMatrices();
 	gl = setUpWebGL();
@@ -115,8 +132,8 @@ function connectVariablesToGLSL() {
 		return attribute;
 	});
 
-	[u_ModelMatrix, u_Sampler0, u_Sampler1, u_Sampler2, u_FragColor, u_WhichTexture, u_ViewMatrix, u_ProjectionMatrix] =
-		['u_ModelMatrix', 'u_Sampler0', 'u_Sampler1', 'u_Sampler2', 'u_FragColor', 'u_WhichTexture', 'u_ViewMatrix', 'u_ProjectionMatrix'].map(name => {
+	[u_ModelMatrix, u_Sampler0, u_Sampler1, u_Sampler2, u_FragColor, u_WhichTexture, u_ViewMatrix, u_ProjectionMatrix, u_LightPos] =
+		['u_ModelMatrix', 'u_Sampler0', 'u_Sampler1', 'u_Sampler2', 'u_FragColor', 'u_WhichTexture', 'u_ViewMatrix', 'u_ProjectionMatrix', 'u_LightPos'].map(name => {
 			const uniform = gl.getUniformLocation(gl.program, name);
 			if (uniform < 0) {
 				throw new Error(`Failed to get the storage location of ${name}`);
@@ -176,28 +193,15 @@ function handleClicks() {
 		lastY = undefined;
 	};
 
-	document.getElementById('add').onclick = () => {
-		const x = Math.round(camera.at.elements[0]);
-		const z = Math.round(camera.at.elements[2]);
-		if (z >= 0 && z < map.length) {
-			if (x >= 0 && x < map[z].length) {
-				map[z][x]++;
-				world = new World(map, TEX_0);
-			}
-		}
+	lightAngleElem.oninput = (e) => {
+		lightAnimating = false;
+		lightAnimateElem.checked = false;
+		lightAngle = parseFloat(e.target.value) / 360 * 2 * Math.PI;
 	};
 
-	document.getElementById('delete').onclick = () => {
-		const x = Math.round(camera.at.elements[0]);
-		const z = Math.round(camera.at.elements[2]);
-		if (z >= 0 && z < map.length) {
-			if (x >= 0 && x < map[z].length) {
-				map[z][x]--;
-				if (map[z][x] < 0) map[z][x] = 0;
-				world = new World(map, TEX_0);
-			}
-		}
-	};
+	lightAnimateElem.onchange = (e) => {
+		lightAnimating = e.target.checked;
+	}
 }
 
 const keys = {
@@ -234,17 +238,19 @@ function handleKeys() {
 }
 
 function updateAnimationAngles(time) {
-	legBLAngle = Math.sin(Math.PI * (time + 0)) * 15;
-	legFLAngle = Math.sin(Math.PI * (time + 0.5)) * 15;
-	legBRAngle = Math.sin(Math.PI * (time + 1)) * 15;
-	legFRAngle = Math.sin(Math.PI * (time + 1.5)) * 15;
+	if (lightAnimating) {
+		lightAngle += time / 1000;
+		lightAngle = lightAngle % (2 * Math.PI);
+		lightAngleElem.value = 360 * lightAngle / 2 / Math.PI;
+	}
+	lightPos = new Vector3([3 * Math.cos(lightAngle), 1, 3 * Math.sin(lightAngle)]);
 }
 
 let lastTick = 0;
 
 function tick(ms) {
 	const before = performance.now();
-	updateAnimationAngles(ms / 1000);
+	updateAnimationAngles(ms - lastTick);
 	moveCamera(ms - lastTick);
 	renderAllShapes();
 	const elapsed = performance.now() - before;
@@ -289,6 +295,7 @@ function renderAllShapes() {
 
 	gl.uniformMatrix4fv(u_ProjectionMatrix, false, camera.projectionMatrix.elements);
 	gl.uniformMatrix4fv(u_ViewMatrix, false, camera.viewMatrix.elements);
+	gl.uniform3f(u_LightPos, ...lightPos.elements);
 
 	const ground = new Cube(TEX_2);
 	ground.matrix.scale(50.0, 0.1, 50.0);
@@ -296,12 +303,12 @@ function renderAllShapes() {
 	ground.render();
 
 	const box1 = new Cube(TEX_NORMAL);
-	box1.matrix.translate(9, 0, 6);
+	box1.matrix.translate(-1, 0, 2);
 	box1.matrix.scale(0.7, 0.7, 0.7);
 	box1.render();
 
-	const box2 = new Cube(TEX_UNIFORM_COLOR, 0xff8080);
-	box2.matrix.translate(9, 0.7, 6);
+	const box2 = new Cube(TEX_0);
+	box2.matrix.translate(-1, 0.7, 2);
 	box2.matrix.rotate(30, 0, 1, 0);
 	box2.matrix.scale(0.5, 0.5, 0.5);
 	box2.render();
@@ -314,4 +321,9 @@ function renderAllShapes() {
 	const sphere = new Sphere(TEX_NORMAL);
 	sphere.matrix.translate(0, 2, 0);
 	sphere.render();
+
+	const lightIndicator = new Cube(TEX_UNIFORM_COLOR, 0x800000);
+	lightIndicator.matrix.translate(...lightPos.elements);
+	lightIndicator.matrix.scale(0.2, 0.2, 0.2);
+	lightIndicator.render();
 }

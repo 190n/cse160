@@ -55,7 +55,7 @@ class Camera {
 	}
 
 	panUp(alpha) {
-		const f = new Vector3(this.at.elements).sub(this.eye);
+		const f = new Vector3(this.at.elements).sub(this.eye).normalize();
 		const alignment = Vector3.dot(f, this.up);
 		if ((alpha > 0 && alignment > 0.99) || (alpha < 0 && alignment < -0.99)) {
 			return;
