@@ -4,7 +4,11 @@ const VSHADER_SOURCE = `
 precision mediump float;
 attribute vec4 a_Position;
 attribute vec2 a_UV;
+attribute vec3 a_Normal;
+
 varying vec2 v_UV;
+varying vec3 v_Normal;
+
 uniform mat4 u_ModelMatrix;
 uniform mat4 u_ViewMatrix;
 uniform mat4 u_ProjectionMatrix;
@@ -13,6 +17,7 @@ void main() {
 	v_UV = a_UV;
 	vec4 pos = u_ProjectionMatrix * u_ViewMatrix * u_ModelMatrix * a_Position;
 	gl_Position = pos;
+	v_Normal = a_Normal;
 }
 `;
 
@@ -21,11 +26,15 @@ const TEX_UV = 2;
 const TEX_0 = 3;
 const TEX_1 = 4;
 const TEX_2 = 5;
+const TEX_NORMAL = 6;
 
 // Fragment shader program
 const FSHADER_SOURCE = `
 precision mediump float;
+
 varying vec2 v_UV;
+varying vec3 v_Normal;
+
 uniform sampler2D u_Sampler0;
 uniform sampler2D u_Sampler1;
 uniform sampler2D u_Sampler2;
@@ -43,13 +52,15 @@ void main() {
 		gl_FragColor = texture2D(u_Sampler1, v_UV);
 	} else if (u_WhichTexture == ${TEX_2}) {
 		gl_FragColor = texture2D(u_Sampler2, v_UV);
+	} else if (u_WhichTexture == ${TEX_NORMAL}) {
+		gl_FragColor = vec4(v_Normal / vec3(2.0) + vec3(0.5), 1.0);
 	} else {
 		gl_FragColor = vec4(1.0, 0.0, 1.0, 1.0);
 	}
 }
 `;
 
-let canvas, gl, a_Position, a_UV, u_ModelMatrix, u_FragColor, u_Sampler0, u_Sampler1, u_Sampler2;
+let canvas, gl, a_Position, a_UV, a_Normal, u_ModelMatrix, u_FragColor, u_Sampler0, u_Sampler1, u_Sampler2;
 
 let fpsEstimate = -1;
 
@@ -96,7 +107,7 @@ function setUpWebGL() {
 }
 
 function connectVariablesToGLSL() {
-	[a_Position, a_UV] = ['a_Position', 'a_UV'].map(name => {
+	[a_Position, a_UV, a_Normal] = ['a_Position', 'a_UV', 'a_Normal'].map(name => {
 		const attribute = gl.getAttribLocation(gl.program, name);
 		if (attribute < 0) {
 			throw new Error(`Failed to get the storage location of ${name}`);
@@ -284,7 +295,7 @@ function renderAllShapes() {
 	ground.matrix.translate(-0.5, -1, -0.5);
 	ground.render();
 
-	const box1 = new Cube(TEX_UNIFORM_COLOR, 0x000ff);
+	const box1 = new Cube(TEX_NORMAL, 0x000ff);
 	box1.matrix.translate(9, 0, 6);
 	box1.matrix.scale(0.7, 0.7, 0.7);
 	box1.render();

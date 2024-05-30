@@ -72,6 +72,10 @@ class Cube {
 
 		gl.vertexAttribPointer(a_UV, 2, gl.FLOAT, false, 8 * Float32Array.BYTES_PER_ELEMENT, 3 * Float32Array.BYTES_PER_ELEMENT);
 		gl.enableVertexAttribArray(a_UV);
+
+		gl.vertexAttribPointer(a_Normal, 3, gl.FLOAT, false, 8 * Float32Array.BYTES_PER_ELEMENT, 5 * Float32Array.BYTES_PER_ELEMENT);
+		gl.enableVertexAttribArray(a_Normal);
+
 		gl.uniform1i(u_WhichTexture, this.whichTexture);
 		if (this.whichTexture == TEX_UNIFORM_COLOR) {
 			gl.uniform4f(u_FragColor, ...this.color.elements, 1.0);
