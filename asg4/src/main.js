@@ -1,5 +1,8 @@
 // ColoredPoint.js (c) 2012 matsuda
 // Vertex shader program
+
+const SPOT_POS = [2, 2, 6];
+
 const VSHADER_SOURCE = `
 precision mediump float;
 attribute vec4 a_Position;
@@ -10,6 +13,8 @@ varying vec2 v_UV;
 varying vec3 v_Normal;
 varying vec3 v_LightDir;
 varying vec3 v_ViewDir;
+varying vec3 v_DirToSpot;
+varying vec3 v_SpotDir;
 
 uniform mat4 u_ModelMatrix;
 uniform mat4 u_ViewMatrix;
@@ -17,6 +22,8 @@ uniform mat4 u_ProjectionMatrix;
 uniform mat4 u_NormalMatrix;
 uniform vec3 u_LightPos;
 uniform vec3 u_CameraPos;
+
+const vec3 spotPos = vec3(${SPOT_POS[0]}, ${SPOT_POS[1]}, ${SPOT_POS[2]});
 
 void main() {
 	v_UV = a_UV;
@@ -27,7 +34,9 @@ void main() {
 
 	v_Normal = normalize(vec3(u_NormalMatrix * vec4(a_Normal, 1)));
 	v_LightDir = normalize(u_LightPos - worldPos.xyz / worldPos.w);
+	v_DirToSpot = normalize(spotPos - worldPos.xyz / worldPos.w);
 	v_ViewDir = normalize(u_CameraPos - worldPos.xyz / worldPos.w);
+	v_SpotDir = normalize(spotPos);
 }
 `;
 
@@ -46,6 +55,8 @@ varying vec2 v_UV;
 varying vec3 v_Normal;
 varying vec3 v_LightDir;
 varying vec3 v_ViewDir;
+varying vec3 v_DirToSpot;
+varying vec3 v_SpotDir;
 
 uniform sampler2D u_Sampler0;
 uniform sampler2D u_Sampler1;
@@ -58,18 +69,29 @@ uniform vec3 u_LightColor;
 const float kDiffuse = 0.5;
 const float kAmbient = 0.2;
 const float kSpecular = 0.5;
-const float alpha = 5.0;
+const float alpha = 7.0;
+
+const float spotAngleCos = 0.97;
 
 void main() {
-	float diffuse = clamp(dot(v_Normal, v_LightDir), 0.0, 1.0);
+	float diffuse = kDiffuse * clamp(dot(v_Normal, v_LightDir), 0.0, 1.0);
 	
 	vec3 reflected = normalize(2.0 * dot(v_Normal, v_LightDir) * v_Normal - v_LightDir);
 	float specular = kSpecular * clamp(pow(dot(reflected, v_ViewDir), alpha), 0.0, 1.0);
 
-	float lightAmount = kDiffuse * diffuse + kAmbient;
+	float spotDiffuse = 0.0;
+	float spotSpecular = 0.0;
+	if (dot(v_DirToSpot, v_SpotDir) > spotAngleCos) {
+		spotDiffuse = clamp(dot(v_Normal, v_DirToSpot), 0.0, 1.0);
+		vec3 spotReflected = normalize(2.0 * dot(v_Normal, v_DirToSpot) * v_Normal - v_DirToSpot);
+		spotSpecular = kSpecular * clamp(pow(dot(reflected, v_ViewDir), alpha), 0.0, 1.0);
+	}
+
+	float lightAmount = diffuse + kAmbient + spotDiffuse;
 
 	if (u_WhichTexture == ${TEX_UNIFORM_COLOR}) {
-		gl_FragColor = vec4(u_FragColor.rgb * lightAmount * u_LightColor, u_FragColor.a) + vec4(specular * u_LightColor, 1.0);
+		gl_FragColor = vec4(u_FragColor.rgb * lightAmount * u_LightColor, u_FragColor.a);
+		gl_FragColor += vec4((specular + spotSpecular) * u_LightColor, 1.0);
 	} else if (u_WhichTexture == ${TEX_UV}) {
 		gl_FragColor = vec4(v_UV, 1.0, 1.0);
 	} else if (u_WhichTexture == ${TEX_0}) {
@@ -379,7 +401,9 @@ sphere.setNormalMatrix();
 
 const lightIndicator = new Cube(TEX_UNIFORM_COLOR, 0xffffff);
 
-const shapes = [ground, box1, box2, sky, sphere, lightIndicator];
+const spotIndicator = new Cube(TEX_UNIFORM_COLOR, 0xffffff);
+
+const shapes = [ground, box1, box2, sky, sphere, lightIndicator, spotIndicator];
 
 function renderAllShapes() {
 	// Clear <canvas>
@@ -393,6 +417,10 @@ function renderAllShapes() {
 
 	lightIndicator.matrix.setTranslate(...lightPos.elements);
 	lightIndicator.matrix.scale(0.2, 0.2, 0.2);
+
+	spotIndicator.matrix.setTranslate(...SPOT_POS);
+	spotIndicator.matrix.scale(0.2, 0.2, 0.2);
+
 
 	for (const s of shapes) {
 		s.render();
