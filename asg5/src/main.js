@@ -28,26 +28,34 @@ for (let i = 0; i < 20; i++) {
 	scene.add(book);
 }
 
+const promises = [];
+
 const texLoader = new THREE.TextureLoader();
 let sphere = null;
-texLoader.load('earthmap.jpg', (texture) => {
-	texture.colorSpace = THREE.SRGBColorSpace;
-	const sphereGeometry = new THREE.SphereGeometry(0.8, 48, 24);
-	const sphereMaterial = new THREE.MeshPhongMaterial({ map: texture });
-	sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-	sphere.position.set(-1, 6.5, 0);
-	scene.add(sphere);
-});
+promises.push(new Promise((resolve) => {
+	texLoader.load('earthmap.jpg', (texture) => {
+		texture.colorSpace = THREE.SRGBColorSpace;
+		const sphereGeometry = new THREE.SphereGeometry(0.8, 48, 24);
+		const sphereMaterial = new THREE.MeshPhongMaterial({ map: texture });
+		sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+		sphere.position.set(-1, 6.5, 0);
+		scene.add(sphere);
+		resolve();
+	});
+}));
 
 // from three.js skybox example: https://threejs.org/examples/webgl_panorama_equirectangular.html
-texLoader.load('chapel_day_2k.jpg', (sky) => {
-	sky.colorSpace = THREE.SRGBColorSpace;
-	const skyGeometry = new THREE.SphereGeometry(400, 32, 16);
-	skyGeometry.scale(-1, 1, 1);
-	const material = new THREE.MeshBasicMaterial({ map: sky });
-	const skySphere = new THREE.Mesh(skyGeometry, material);
-	scene.add(skySphere);
-});
+promises.push(new Promise((resolve) => {
+	texLoader.load('chapel_day_2k.jpg', (sky) => {
+		sky.colorSpace = THREE.SRGBColorSpace;
+		const skyGeometry = new THREE.SphereGeometry(400, 32, 16);
+		skyGeometry.scale(-1, 1, 1);
+		const material = new THREE.MeshBasicMaterial({ map: sky });
+		const skySphere = new THREE.Mesh(skyGeometry, material);
+		scene.add(skySphere);
+		resolve();
+	});
+}));
 
 const color = 0xFFFFFF;
 const intensity = 3;
@@ -65,13 +73,16 @@ scene.add(ambient);
 const objLoader = new OBJLoader();
 const mtlLoader = new MTLLoader();
 // bookshelf model from https://free3d.com/3d-model/bookshelf-778335.html
-mtlLoader.load('bookshelf.mtl', (mtl) => {
-	mtl.preload();
-	objLoader.setMaterials(mtl);
-	objLoader.load('bookshelf.obj', (bookshelf) => {
-		scene.add(bookshelf);
+promises.push(new Promise((resolve) => {
+	mtlLoader.load('bookshelf.mtl', (mtl) => {
+		mtl.preload();
+		objLoader.setMaterials(mtl);
+		objLoader.load('bookshelf.obj', (bookshelf) => {
+			scene.add(bookshelf);
+			resolve();
+		});
 	});
-});
+}));
 
 // from three.js example https://threejs.org/manual/#en/responsive
 function resizeRendererToDisplaySize(renderer) {
@@ -101,4 +112,8 @@ function render(time) {
 	requestAnimationFrame(render);
 }
 
-requestAnimationFrame(render);
+Promise.all(promises).then(() => {
+	document.getElementById('loader').style.display = 'none';
+	canvas.style.display = 'block';
+	requestAnimationFrame(render);
+});
