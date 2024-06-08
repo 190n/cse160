@@ -365,9 +365,10 @@ canvas.onclick = (e) => {
 	if (intersects.length > 0) {
 		const clicked = intersects[0].object;
 		const clickedIndex = books.indexOf(clicked);
-		if (order.includes(clickedIndex)) return;
-		selectedBook = books.indexOf(clicked);
-		return;
+		if (!order.includes(clickedIndex)) {
+			selectedBook = books.indexOf(clicked);
+			return;
+		}
 	}
 	intersects = raycaster.intersectObjects(placeholders.filter((_, i) => order[i] < 0));
 	if (intersects.length > 0 && selectedBook >= 0) {
